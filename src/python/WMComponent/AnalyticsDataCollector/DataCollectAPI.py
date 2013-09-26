@@ -437,3 +437,17 @@ def _getCouchACDCHtmlBase(acdcCouchURL):
 
 
     return '%s/_design/ACDC/collections.html' % sanitizeURL(acdcCouchURL)['url']
+
+def initAgentInfo(config):
+
+    agentInfo = {}
+    agentInfo['agent_team'] = config.Agent.teamName
+    agentInfo['agent'] = config.Agent.agentName
+    # temporarly add port for the split test
+    agentInfo['agent_url'] = ("%s:%s" % (config.Agent.hostName, config.WMBSService.Webtools.port))
+    
+    return agentInfo
+
+
+
+
