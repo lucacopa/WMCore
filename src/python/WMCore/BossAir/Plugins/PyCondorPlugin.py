@@ -1151,7 +1151,9 @@ class PyCondorPlugin(BasePlugin):
 
 
         jobLogInfo={}
-        for joblog in os.listdir(job['cache_dir']):
+        cacheDirs = os.listdir(job['cache_dir'])
+        cacheDirs.sort(key=str.lower,reverse=True)
+        for joblog in cacheDirs:
             if fnmatch.fnmatch(joblog, 'condor.*.*.log'):
                 logFile=os.path.join(job['cache_dir'],joblog)
                 tmpDict={}
@@ -1171,8 +1173,9 @@ class PyCondorPlugin(BasePlugin):
                     tmpDict["runningCMSSite"]=ulog[-1]["MachineAttrGLIDEIN_CMSSite0"]
                     tmpDict["WMAgentID"]=int(ulog[-1]["WMAgent_JobID"])
                     jobLogInfo[int(ulog[-1]["WMAgent_JobID"])] = tmpDict
-
-                logging.info("Retrieved %i Info from Condor Job Log file %s" % (len(jobLogInfo), logFile))
+                    
+                    logging.info("Retrieved %i Info from Condor Job Log file %s" % (len(jobLogInfo), logFile))
+                    break
                     
         return jobLogInfo
 
