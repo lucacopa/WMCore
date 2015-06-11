@@ -159,11 +159,11 @@ class EventAwareLumiBased(JobFactory):
                 updateSplitOnJobStop = False
                 failNextJob          = False
                 #If the number of events per lumi is higher than the limit
-                #and it's only one lumi then ditch that lumi
-                if f['avgEvtsPerLumi'] > eventLimit and f['lumiCount'] == 1:
+                #Then we ditch this file
+                if f['avgEvtsPerLumi'] > eventLimit:
                     failNextJob = True
                     stopJob = True
-                    lumisPerJob = 1
+                    lumisPerJob = len([l in r for r in f['runs']])
                 elif splitOnFile:
                     # Then we have to split on every boundary
                     stopJob = True
