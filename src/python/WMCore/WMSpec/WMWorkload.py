@@ -697,7 +697,7 @@ class WMWorkloadHelper(PersistencyHelper):
         Change the lumi mask for all tasks in the spec
         """
 
-        for task in self.taskIterator() :
+        for task in self.taskIterator():
             task.setLumiMask(lumiLists, override=False)
 
         #set lumiList for workload (need to refactor)
@@ -707,12 +707,12 @@ class WMWorkloadHelper(PersistencyHelper):
     def setTaskProperties(self, requestArgs):
         if not 'TaskChain' in requestArgs:
             return
-        
+
         numTasks = requestArgs['TaskChain']
         taskArgs = []
         for i in range(numTasks):
             taskArgs.append(requestArgs["Task%s" % (i+1)])
-        
+
         for prop in taskArgs:
             taskName = prop['TaskName']
             for task in self.getAllTasks():
@@ -720,8 +720,8 @@ class WMWorkloadHelper(PersistencyHelper):
                     del prop['TaskName']
                     task.setProperties(prop)
                     break
-        return 
-            
+        return
+
     def getAcquisitionEra(self):
         """
         _getAcquisitionEra_
@@ -735,7 +735,7 @@ class WMWorkloadHelper(PersistencyHelper):
             return topTasks[0].getAcquisitionEra()
 
         return None
-    
+
     def getRequestType(self):
         """
         _getRequestType_
@@ -808,7 +808,6 @@ class WMWorkloadHelper(PersistencyHelper):
         self.data.properties.prepID = prepID
         return
 
-
     def getPrepID(self):
         """
         _getPrepID_
@@ -816,6 +815,19 @@ class WMWorkloadHelper(PersistencyHelper):
         Get the prepID for the workflow
         """
         return getattr(self.data.properties, 'prepID', None)
+
+    def getDbsUrl(self):
+        """
+        _getDbsUrl_
+
+        Get the DbsUrl specified for the input dataset.
+        """
+        if not getattr(self.data.request, "schema", None):
+            return "https://cmsweb.cern.ch/dbs/prod/global/DBSReader"
+        elif not getattr(self.data.request.schema, "DbsUrl", None):
+            return "https://cmsweb.cern.ch/dbs/prod/global/DBSReader"
+
+        return getattr(self.data.request.schema, "DbsUrl")
 
     def setCampaign(self, campaign):
         """
@@ -845,7 +857,7 @@ class WMWorkloadHelper(PersistencyHelper):
         """
         self.data.properties.mergedLFNBase = mergedLFNBase
         self.data.properties.unmergedLFNBase = unmergedLFNBase
-        
+
         # set all child tasks lfn base.
         for task in self.taskIterator():
             task.setLFNBase(mergedLFNBase, unmergedLFNBase)
@@ -1080,7 +1092,8 @@ class WMWorkloadHelper(PersistencyHelper):
                 stepHelper = task.getStepHelper(stepName)
                 if stepHelper.stepType() == "CMSSW":
                     pileupSection = stepHelper.getPileup()
-                    if pileupSection is None: continue
+                    if pileupSection is None: 
+                        continue
                     dbsUrl = stepHelper.data.dbsUrl
                     if dbsUrl not in pileupDatasets:
                         pileupDatasets[dbsUrl] = set()
@@ -1123,7 +1136,8 @@ class WMWorkloadHelper(PersistencyHelper):
     def setSubscriptionInformationWildCards(self, wildcardDict, custodialSites = None,
                                             nonCustodialSites = None, autoApproveSites = None,
                                             custodialSubType = "Replica", nonCustodialSubType = "Replica",
-                                            priority = "Low", primaryDataset = None, dataTier = None):
+                                            priority = "Low", primaryDataset = None, dataTier = None,
+                                            deleteFromSource = False):
         """
         _setSubscriptonInformationWildCards_
 
@@ -1163,12 +1177,14 @@ class WMWorkloadHelper(PersistencyHelper):
                                         nonCustodialSubType = nonCustodialSubType,
                                         priority = priority,
                                         primaryDataset = primaryDataset,
-                                        dataTier = dataTier)
+                                        dataTier = dataTier,
+                                        deleteFromSource = deleteFromSource)
 
     def setSubscriptionInformation(self, initialTask = None, custodialSites = None,
                                    nonCustodialSites = None, autoApproveSites = None,
                                    custodialSubType = "Replica", nonCustodialSubType = "Replica",
-                                   priority = "Low", primaryDataset = None, dataTier = None):
+                                   priority = "Low", primaryDataset = None, dataTier = None,
+                                   deleteFromSource = False):
         """
         _setSubscriptionInformation_
 
@@ -1192,11 +1208,13 @@ class WMWorkloadHelper(PersistencyHelper):
             task.setSubscriptionInformation(custodialSites, nonCustodialSites,
                                             autoApproveSites, custodialSubType,
                                             nonCustodialSubType, priority,
-                                            primaryDataset, dataTier)
+                                            primaryDataset, dataTier,
+                                            deleteFromSource)
             self.setSubscriptionInformation(task, custodialSites, nonCustodialSites,
                                             autoApproveSites, custodialSubType,
                                             nonCustodialSubType, priority,
-                                            primaryDataset, dataTier)
+                                            primaryDataset, dataTier,
+                                            deleteFromSource)
 
         return
 
@@ -1211,11 +1229,17 @@ class WMWorkloadHelper(PersistencyHelper):
         subInfo = {}
 
         # Add site lists without duplicates
-        extendWithoutDups = lambda x, y : x + list(set(y) - set(x))
+        extendWithoutDups = lambda x, y: x + list(set(y) - set(x))
         # Choose the lowest priority
+<<<<<<< HEAD
+        solvePrioConflicts = lambda x, y: y if x == "High" or y == "Low" else x
+=======
         solvePrioConflicts = lambda x, y : y if x == "High" or y == "Low" else x
+        # Always choose a logical AND
+        solveDelConflicts = lambda x, y : x and y
+>>>>>>> 074e682... implement a copy-delete type subscription mode
         # Choose replica over move
-        solveTypeConflicts = lambda x, y : y if x == "Move" else x
+        solveTypeConflicts = lambda x, y: y if x == "Move" else x
 
         if initialTask:
             taskIterator = initialTask.childTaskIterator()
@@ -1235,10 +1259,12 @@ class WMWorkloadHelper(PersistencyHelper):
                                                                               subInfo[dataset]["AutoApproveSites"])
                     subInfo[dataset]["Priority"]          = solvePrioConflicts(taskSubInfo[dataset]["Priority"],
                                                                                subInfo[dataset]["Priority"])
+                    subInfo[dataset]["DeleteFromSource"] = solveDelConflicts(taskSubInfo[dataset]["DeleteFromSource"],
+                                                                               subInfo[dataset]["DeleteFromSource"])
                     subInfo[dataset]["CustodialSubType"] = solveTypeConflicts(taskSubInfo[dataset]["CustodialSubType"],
-                                                                               subInfo[dataset]["CustodialSubType"])
+                                                                              subInfo[dataset]["CustodialSubType"])
                     subInfo[dataset]["NonCustodialSubType"] = solveTypeConflicts(taskSubInfo[dataset]["NonCustodialSubType"],
-                                                                               subInfo[dataset]["NonCustodialSubType"])
+                                                                                 subInfo[dataset]["NonCustodialSubType"])
                 else:
                     subInfo[dataset] = taskSubInfo[dataset]
                 subInfo[dataset]["CustodialSites"] = list(set(subInfo[dataset]["CustodialSites"]) - set(subInfo[dataset]["NonCustodialSites"]))
@@ -1545,9 +1571,9 @@ class WMWorkloadHelper(PersistencyHelper):
                    'owner' : {},
                    }
 
-        summary['tasks']  = self.listAllTaskPathNames()
+        summary['tasks'] = self.listAllTaskPathNames()
         summary['output'] = self.listOutputDatasets()
-        summary['input']  = self.listInputDatasets()
+        summary['input'] = self.listInputDatasets()
         summary['owner'] = self.data.owner.dictionary_()
         summary['performance'] = {}
         for t in summary['tasks']:
@@ -1642,12 +1668,12 @@ class WMWorkloadHelper(PersistencyHelper):
         lfnParams = ["MergedLFNBase", "UnmergedLFNBase"]
         mergeParams = ["MinMergeSize", "MaxMergeSize", "MaxMergeEvents"]
         performanceParams = ["MaxRSS", "MaxVSize", "SoftTimeout", "GracePeriod"]
-        phedexParams =["CustodialSites", "NonCustodialSites",
+        phedexParams = ["CustodialSites", "NonCustodialSites",
                         "AutoApproveSubscriptionSites", "CustodialSubType",
                         "NonCustodialSubType", "SubscriptionPriority"]
         blockCloseParams = ["BlockCloseMaxWaitTime", "BlockCloseMaxFiles",
-                                    "BlockCloseMaxEvents", "BlockCloseMaxSize"]
-        
+                            "BlockCloseMaxEvents", "BlockCloseMaxSize"]
+
         assignParams = []
         assignParams.extend(siteParams)
         assignParams.extend(lfnParams)
@@ -1655,13 +1681,11 @@ class WMWorkloadHelper(PersistencyHelper):
         assignParams.extend(performanceParams)
         assignParams.extend(phedexParams)
         assignParams.extend(blockCloseParams)
-        
-        
+
         specClass = loadSpecClassByType(self.requestType())
         argumentDefinition = specClass.getWorkloadArguments()
         setAssignArgumentsWithDefault(kwargs, argumentDefinition, assignParams)
-        
-        
+
         if self._checkKeys(kwargs, siteParams):
             self.setSiteWildcardsLists(siteWhitelist = kwargs["SiteWhitelist"],
                                        siteBlacklist = kwargs["SiteBlacklist"],
@@ -1687,9 +1711,9 @@ class WMWorkloadHelper(PersistencyHelper):
 
         if self._checkKeys(kwargs, performanceParams):
             self.setupPerformanceMonitoring(int(kwargs["MaxRSS"]),
-                                          int(kwargs["MaxVSize"]),
-                                          int(kwargs["SoftTimeout"]),
-                                          int(kwargs["GracePeriod"]))
+                                            int(kwargs["MaxVSize"]),
+                                            int(kwargs["SoftTimeout"]),
+                                            int(kwargs["GracePeriod"]))
 
         # Check whether we should check location for the data
         if self._checkKeys(kwargs, "useSiteListAsLocation"):
