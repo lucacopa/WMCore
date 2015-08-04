@@ -261,6 +261,7 @@ class PromptRecoWorkloadFactory(StdBase):
             if self.procJobSplitAlgo == "EventAwareLumiBased":
                 self.procJobSplitArgs["max_events_per_lumi"] = 100000
                 self.procJobSplitArgs["capJobTime"] = 47*3600
+                self.procJobSplitArgs["capJobDisk"] = 100000000
         elif self.procJobSplitAlgo == "LumiBased":
             self.procJobSplitArgs["lumis_per_job"] = self.lumisPerJob
         elif self.procJobSplitAlgo == "FileBased":
