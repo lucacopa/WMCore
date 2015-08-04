@@ -36,10 +36,13 @@ class GetDeletableBlocks(DBFormatter):
                dbsbuffer_workflow.id = dbsbuffer_file.workflow
              INNER JOIN dbsbuffer_location ON
                dbsbuffer_location.id = dbsbuffer_block.location
+             LEFT OUTER JOIN wmbs_workflow ON
+               wmbs_workflow.name = dbsbuffer_workflow.name
              WHERE dbsbuffer_dataset_subscription.delete_blocks = 1
              AND dbsbuffer_dataset_subscription.subscribed = 1
              AND dbsbuffer_block.status = 'Closed'
              AND dbsbuffer_block.deleted = 0
+             AND wmbs_workflow.id is NULL
              GROUP BY dbsbuffer_block.blockname,
                       dbsbuffer_location.se_name,
                       dbsbuffer_dataset.path,
