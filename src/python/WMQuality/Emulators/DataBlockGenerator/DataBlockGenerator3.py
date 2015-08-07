@@ -1,5 +1,6 @@
-from Globals import GlobalParams
-import Globals
+from __future__ import absolute_import
+from .Globals import GlobalParams
+from . import Globals
 
 class NoDatasetError(Exception):
     """Standard error baseclass"""
@@ -12,7 +13,7 @@ class DataBlockGenerator3(object):
 
     def _blockGenerator(self, dataset):
         if dataset.startswith('/' + Globals.NOT_EXIST_DATASET):
-            raise NoDatasetError, "no dataset"
+            raise NoDatasetError("no dataset")
         blocks = []
         numOfEvents = GlobalParams.numOfFilesPerBlock() * GlobalParams.numOfEventsPerFile()
         for i in range(GlobalParams.numOfBlocksPerDataset()):

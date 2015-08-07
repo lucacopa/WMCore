@@ -184,9 +184,20 @@ class DashboardReporter(WMObject):
             package.update(self.getPerformanceInformation(step))
             package.update(self.getEventInformation(stepName, job['fwjr']))
 
+            # Input files should just be appended onto inputFiles instead of given a step #
+            # per https://hypernews.cern.ch/HyperNews/CMS/get/comp-monitoring/326.html
+            inputFilePackage = self.getInputFilesInformation(step)
+            if inputFilePackage:
+                if 'inputFiles' in package:
+                    package['inputFiles'] += ';' +  inputFilePackage['inputFiles']
+                else:
+                    package.update(self.getInputFilesInformation(step))
+
             trimmedPackage = {}
             for key in package:
-                if package[key] != None:
+                if key in ['inputFiles', 'Basename', 'inputBlocks']:
+                    trimmedPackage[key] = package[key]
+                elif package[key] != None:
                     trimmedPackage['%d_%s' % (counter, key)] = package[key]
             package = trimmedPackage
 
@@ -222,49 +233,54 @@ class DashboardReporter(WMObject):
 
         Handles the information about input and output files in the step
         and provides detailed event information to be sent to the dashboard
+
         """
-
-        package = {}
-
-        package['inputEvents'] = 0
+        inputEvents = 0
         inputFiles = fwjr.getInputFilesFromStep(stepName = stepName)
         for inputFile in inputFiles:
-            package['inputEvents'] += inputFile['events']
+            inputEvents += inputFile['events']
 
-        package['OutputEventInfo'] = ''
+        outputEventInfo = ''
         step = fwjr.retrieveStep(stepName)
         outputModules = getattr(step, 'outputModules', None)
 
         if outputModules:
             for outputMod in outputModules:
+
+                # we don't report logArchive, LogCollect and Sqlite output
+                if outputMod in [ "logArchive", "LogCollect", "Sqlite" ]:
+                    continue
+
                 outFiles = fwjr.getFilesFromOutputModule(step = stepName,
                                                          outputModule = outputMod)
-                if not outFiles:
-                    continue
-                dataTier = None
+
+                # an output module can write multiple files, but
+                # they all have the same dataset and data tier
                 events = 0
+                dataTier = None
                 procDataset = None
                 for outFile in outFiles:
-                    if not dataTier:
-                        dataTier = outFile['dataset'].get('dataTier', None)
-                    if not procDataset:
-                        procDataset = outFile['dataset'].get('processedDataset', None)
-                    if not (dataTier and procDataset):
+
+                    dataTier = outFile['dataset'].get('dataTier', None)
+                    procDataset = outFile['dataset'].get('processedDataset', None)
+                    if dataTier and procDataset:
+                        events += outFile['events']
+                    else:
                         logging.error('Output module %s has a file %s with incomplete info'
-                                        % (outputMod, outFile['lfn']))
-                        continue
-                    events += outFile['events']
+                                      % (outputMod, outFile['lfn']))
+
                 if dataTier and procDataset:
-                    package['OutputEventInfo'] += '%s:%s:%d;' % (procDataset,
-                                                                dataTier,
-                                                                events)
+                    outputEventInfo += '%s:%s:%d;' % (procDataset, dataTier, events)
 
-        if not (package['inputEvents'] or package['OutputEventInfo']):
+        # take off the last ;
+        if outputEventInfo:
+            outputEventInfo = outputEventInfo[:-1]
+
+        if inputEvents or outputEventInfo:
+            return { 'inputEvents' : inputEvents,
+                     'OutputEventInfo' : outputEventInfo }
+        else:
             return {}
-
-        package['OutputEventInfo'] = package['OutputEventInfo'][:-1]
-
-        return package
 
     def getPerformanceInformation(self, step):
         """
@@ -330,6 +346,60 @@ class DashboardReporter(WMObject):
                                                     'MinEventTime', None)
         package['MaxEventCPU']            = getattr(performance.cpu,
                                                     'MaxEventCPU', None)
+
+        return package
+
+    def getInputFilesInformation(self, step):
+        """
+        Determines the input files and parent input files and
+        if they were read correctly, skipped, or read through fallback
+        """
+
+        files = {}
+        package = {}
+
+        try:
+            if hasattr(step, 'input') and hasattr(step.input, 'source'):
+                for fileobj in step.input.source.files:
+                    if hasattr(fileobj, 'lfn'):
+                        lfn = fileobj.lfn
+                        inputType = getattr(fileobj, 'input_type', 'primaryFiles')
+                        files.update({lfn: {'status': 'Local', 'type': inputType}})
+
+            if hasattr(step, 'skipped'):
+                for fileobj in step.skipped.files:
+                    if hasattr(fileobj, 'LogicalFileName'):
+                        lfn = fileobj.LogicalFileName
+                        inputType = getattr(fileobj, 'input_type', 'primaryFiles')  # Probably not working
+                        files.update({lfn: {'status': 'Skipped', 'type': inputType}})
+
+            if hasattr(step, 'fallback'):
+                for fileobj in step.fallback.files:
+                    if hasattr(fileobj, 'LogicalFileName'):
+                        lfn = fileobj.LogicalFileName
+                        inputType = getattr(fileobj, 'input_type', 'primaryFiles')  # Probably not working
+                    files.update({lfn: {'status': 'Remote', 'type': inputType}})
+        except AttributeError:
+            return package
+
+        inputFilesStrings = []
+        fileCount = 0
+        for inputFile, details in files.items():
+            fileCount += 1
+            success = '0'
+            accessType = details['status']
+            if details['status'] in ['Local', 'Remote']:
+                success = '1'
+            if accessType == 'Skipped':
+                accessType = 'Local'
+            inputFilesStrings.append('::'.join([inputFile, success, 'EDM', accessType, str(fileCount)]))
+
+        if fileCount:
+            package = {
+                'inputBlocks': 'Dummy',
+                'Basename': '/',
+                'inputFiles': ';'.join(inputFilesStrings),
+            }
 
         return package
 

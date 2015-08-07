@@ -40,7 +40,7 @@ def getTaskFromStep(stepRef):
     if taskNode == None:
         msg = "Unable to find Task containing step\n"
         #TODO: Replace with real exception class
-        raise RuntimeError, msg
+        raise RuntimeError(msg)
 
     return WMTaskHelper(taskNode)
 
@@ -62,9 +62,9 @@ def buildLumiMask(runs, lumis):
             raise ValueError("Needs an even number of lumi in each element of lumis list")
 
 
-    lumiLists = [map(list, zip([int(y) for y in x.split(',')][::2], [int(y) for y in x.split(',')][1::2])) for x in lumis]
+    lumiLists = [map(list, list(zip([int(y) for y in x.split(',')][::2], [int(y) for y in x.split(',')][1::2]))) for x in lumis]
     strRuns = [str(run) for run in runs]
-    lumiMask = dict(zip(strRuns, lumiLists))
+    lumiMask = dict(list(zip(strRuns, lumiLists)))
     return lumiMask
 
 
@@ -641,7 +641,7 @@ class WMTaskHelper(TreeHelper):
 
         if primary == None or processed == None or tier == None:
             msg = "Primary, Processed and Tier must be set"
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
         self.data.input.dataset.primary = primary
         self.data.input.dataset.processed = processed

@@ -6,6 +6,7 @@ Monitoring plugin to broadcast data to the CMS Dashboard
 Allow only to publish a dictionary
 
 """
+from __future__ import absolute_import
 
 
 
@@ -13,8 +14,8 @@ import uuid
 import types
 import time
 import os
-from MSGTransPortAgent import *
-from ApmonTransPort import *
+from .MSGTransPortAgent import *
+from .ApmonTransPort import *
 
 def generateCMSJobID():
     """
@@ -236,16 +237,16 @@ class DashboardBase(MSGTransPortAgent, ApmonTransPort, dict):
         if self.taskid == None:
             msg = "Error: You must set the taskid before adding \n"
             msg += "destinations or publishing data"
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
         if self.jobid == None:
             msg = "Error: You must set the jobid before adding \n"
             msg += "destination or publishing data"
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
         if len(self.destinations) == 0:
             msg = "Error: You must set the destination:port in addDestination "
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
 
         if len(self.publisher) == 0:
             self.publisher = [ApmonTransPort(self.taskid, self.jobid)]
